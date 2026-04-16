@@ -1,6 +1,6 @@
 #!/bin/sh
 # rescue initramfs module
-# Fixes two issues in the PetaLinux initramfs ramdisk:
+# Applied fixes:
 #   1. Ctrl+C does not work ("sh: can't access tty; job control turned off")
 #      -> override fatal() to use setsid + cttyhack so the shell gets a
 #         proper controlling terminal, enabling job control and Ctrl+C.
@@ -8,6 +8,9 @@
 #      exist, so the host key cannot be saved.
 #      -> create the directory early in boot so the first ssh -y / scp
 #         connection can write known_hosts normally.
+#   3. Static network configuration for VCK190 lab network:
+#      eth0 10.161.90.190/24, eth1 10.161.90.191/24, gw 10.161.90.1
+#      -> udhcpc is suppressed to prevent DHCP from overriding static IPs.
 
 rescue_enabled() {
     return 0
@@ -35,4 +38,23 @@ rescue_run() {
         mkdir -p /home/petalinux/.ssh
         chmod 700 /home/petalinux/.ssh
     fi
+
+    # ---- Fix 3: static network configuration ----
+    # Suppress the udhcpc pre-hook (defined in 01-udhcpc) so DHCP does not
+    # run before 99-finish and overwrite the static addresses below.
+    run_udhcpc() { return 0; }
+
+    # Bring up loopback
+    ip link set lo up 2>/dev/null || true
+
+    # eth0 — 10.161.90.190/24
+    ip link set eth0 up 2>/dev/null && \
+        ip addr add 10.161.90.190/24 dev eth0 2>/dev/null || true
+
+    # eth1 — 10.161.90.191/24
+    ip link set eth1 up 2>/dev/null && \
+        ip addr add 10.161.90.191/24 dev eth1 2>/dev/null || true
+
+    # Default gateway (shared by both interfaces, one route is enough)
+    ip route add default via 10.161.90.1 2>/dev/null || true
 }
