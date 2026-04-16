@@ -1,0 +1,38 @@
+#!/bin/sh
+# rescue initramfs module
+# Fixes two issues in the PetaLinux initramfs ramdisk:
+#   1. Ctrl+C does not work ("sh: can't access tty; job control turned off")
+#      -> override fatal() to use setsid + cttyhack so the shell gets a
+#         proper controlling terminal, enabling job control and Ctrl+C.
+#   2. scp (dropbear dbclient) refuses to connect because ~/.ssh/ does not
+#      exist, so the host key cannot be saved.
+#      -> create the directory early in boot so the first ssh -y / scp
+#         connection can write known_hosts normally.
+
+rescue_enabled() {
+    return 0
+}
+
+rescue_run() {
+    # ---- Fix 1: Ctrl+C / job-control ----
+    # Override the fatal() function that is defined in /init.
+    # The original spawns a bare 'sh' which has no controlling terminal.
+    # setsid creates a new session and cttyhack attaches the real serial
+    # TTY to it, so the shell gets proper job-control and Ctrl+C works.
+    fatal() {
+        echo "$1" >/dev/console
+        echo >/dev/console
+        exec setsid cttyhack sh
+    }
+
+    # ---- Fix 2: scp / dropbear host-key storage ----
+    # dbclient (dropbear's ssh client) writes known_hosts to ~/.ssh/.
+    # If the directory does not exist the first connection attempt fails
+    # with "Didn't validate host key" even after the user types 'y'.
+    mkdir -p /root/.ssh
+    chmod 700 /root/.ssh
+    if [ -d /home/petalinux ]; then
+        mkdir -p /home/petalinux/.ssh
+        chmod 700 /home/petalinux/.ssh
+    fi
+}
