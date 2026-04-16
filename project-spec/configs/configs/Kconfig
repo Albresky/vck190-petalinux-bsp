@@ -1,0 +1,24 @@
+
+mainmenu "PetaLinux System Configuration"
+config SUBSYSTEM_TYPE_LINUX
+        bool
+        default y
+        select SYSTEM_VERSAL
+
+config SYSTEM_VERSAL
+        bool "VERSAL Configuration"
+        help
+          VERSAL Configuration for petalinux project.
+          All these config options will be in /das/ts02/home/shikai/xilinx/petalinux202401/vck190-bootbsp-v2024.1-mod/project-spec/configs/config
+
+config SUBSYSTEM_VARIANT_VERSALAI-CORE
+        bool
+        default y
+        help
+
+config SUBSYSTEM_DISTRO_PETALINUX
+        bool
+        default y
+        help
+
+source /das/ts02/home/shikai/xilinx/petalinux202401/vck190-bootbsp-v2024.1-mod/project-spec/configs/configs/Kconfig.main

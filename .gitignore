@@ -1,0 +1,25 @@
+
+*/*/config.old
+*/*/rootfs_config.old
+build/
+images/linux/
+pre-built/linux/
+.petalinux/*
+!.petalinux/metadata
+*.o
+*.jou
+*.log
+components/plnx_workspace
+components/yocto
+
+# Vivado generated outputs (synthesis runs, IP gen, simulation, cache)
+hardware/xilinx-vck190-2024.1/*.runs/
+hardware/xilinx-vck190-2024.1/*.gen/
+hardware/xilinx-vck190-2024.1/*.sim/
+hardware/xilinx-vck190-2024.1/*.ip_user_files/
+hardware/xilinx-vck190-2024.1/*.cache/
+hardware/xilinx-vck190-2024.1/*.hw/
+hardware/xilinx-vck190-2024.1/*.srcs/
+
+# Xilinx tool temp files
+.Xil/
