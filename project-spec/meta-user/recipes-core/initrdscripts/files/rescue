@@ -11,6 +11,8 @@
 #   3. Static network configuration for VCK190 lab network:
 #      eth0 10.161.90.190/24, eth1 10.161.90.191/24, gw 10.161.90.1
 #      -> udhcpc is suppressed to prevent DHCP from overriding static IPs.
+#   4. Pre-install TEST SSH key so clients can log in without a password,
+#      and print the matching private key on every login (serial + SSH).
 
 rescue_enabled() {
     return 0
@@ -22,16 +24,22 @@ rescue_run() {
     # The original spawns a bare 'sh' which has no controlling terminal.
     # setsid creates a new session and cttyhack attaches the real serial
     # TTY to it, so the shell gets proper job-control and Ctrl+C works.
+    #
+    # This override also starts dropbear (SSH server) and prints the TEST
+    # private key banner before handing off to the interactive shell.
     fatal() {
         echo "$1" >/dev/console
         echo >/dev/console
+        # Start SSH server in background so remote access is available
+        # immediately when the shell prompt appears.
+        # -R : auto-generate missing host keys
+        dropbear -R 2>/dev/null || true
+        # Print the TEST key banner to the serial console
+        cat /etc/motd >/dev/console
         exec setsid cttyhack sh
     }
 
     # ---- Fix 2: scp / dropbear host-key storage ----
-    # dbclient (dropbear's ssh client) writes known_hosts to ~/.ssh/.
-    # If the directory does not exist the first connection attempt fails
-    # with "Didn't validate host key" even after the user types 'y'.
     mkdir -p /root/.ssh
     chmod 700 /root/.ssh
     if [ -d /home/petalinux ]; then
@@ -40,21 +48,43 @@ rescue_run() {
     fi
 
     # ---- Fix 3: static network configuration ----
-    # Suppress the udhcpc pre-hook (defined in 01-udhcpc) so DHCP does not
-    # run before 99-finish and overwrite the static addresses below.
     run_udhcpc() { return 0; }
 
-    # Bring up loopback
     ip link set lo up 2>/dev/null || true
 
-    # eth0 — 10.161.90.190/24
     ip link set eth0 up 2>/dev/null && \
         ip addr add 10.161.90.190/24 dev eth0 2>/dev/null || true
 
-    # eth1 — 10.161.90.191/24
     ip link set eth1 up 2>/dev/null && \
         ip addr add 10.161.90.191/24 dev eth1 2>/dev/null || true
 
-    # Default gateway (shared by both interfaces, one route is enough)
     ip route add default via 10.161.90.1 2>/dev/null || true
+
+    # ---- Fix 4: TEST SSH key ----
+    # Public key → /root/.ssh/authorized_keys (allows key-based login)
+    cat > /root/.ssh/authorized_keys <<'PUBKEY'
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINntJoy3ube/VSFR57FL3JIXyBcoPrtLUg0k6C2JHvN9 versal-vck190-bsp-TEST-only
+PUBKEY
+    chmod 600 /root/.ssh/authorized_keys
+
+    # /etc/motd is displayed by dropbear on every SSH login.
+    # It also gets printed to the serial console by the fatal() override above.
+    cat > /etc/motd <<'BANNER'
+
+================================================================
+  VCK190 BSP ramdisk  |  TEST SSH key  (TEST-only, not for prod)
+  ssh -i <key_file> root@10.161.90.190
+================================================================
+  Private key (id_ed25519_versal-vck190-bsp-TEST-only):
+----------------------------------------------------------------
+-----BEGIN OPENSSH PRIVATE KEY-----
+b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+QyNTUxOQAAACDZ7SaMt7m3v1UhUeexS9ySF8gXKD67S1INJOgtiR7zfQAAAKCie7ELonux
+CwAAAAtzc2gtZWQyNTUxOQAAACDZ7SaMt7m3v1UhUeexS9ySF8gXKD67S1INJOgtiR7zfQ
+AAAEA3yK7L1siggE+ON3goSOmXLSd29IFLlKd8+e1NshG5H9ntJoy3ube/VSFR57FL3JIX
+yBcoPrtLUg0k6C2JHvN9AAAAG3ZlcnNhbC12Y2sxOTAtYnNwLVRFU1Qtb25seQEC
+-----END OPENSSH PRIVATE KEY-----
+================================================================
+
+BANNER
 }
