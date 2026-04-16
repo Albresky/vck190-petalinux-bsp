@@ -59,7 +59,7 @@ python -m http.server 10190
 ### 4.[VCK190] Download .img and FLASH it to sdcard
 
 ```bash
-wget -O - "http://10.161.90.10:/sd_card.img" | pv | dd of=/dev/mmcblk0 bs=64M conv=fsync
+wget -O - "http://10.161.90.10:10190/sd_card.img" | pv | dd of=/dev/mmcblk0 bs=64M conv=fsync
 ```
 
 Expected output:
